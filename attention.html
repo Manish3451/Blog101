@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Bahdanau Attention: A Visual Guide</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* ============================================
+           THEME VARIABLES
+           ============================================ */
+        
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #24292e;
+            --text-secondary: #586069;
+            --heading-color: #1a1a1a;
+            --accent-color: #0366d6;
+            --accent-light: #e1f0ff;
+            --code-bg: #f6f8fa;
+            --border-color: #e1e4e8;
+            --highlight-bg: #fff8c5;
+            --link-color: #0366d6;
+            --success-color: #28a745;
+            --warning-color: #ffd33d;
+            --danger-color: #d73a49;
+            --diagram-bg: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            --callout-note-bg: #f0f7ff;
+            --callout-tip-bg: #f0fff4;
+            --callout-important-bg: #fff8c5;
+            --callout-warning-bg: #fff5f5;
+            --svg-box-fill: #ffffff;
+            --svg-encoder-fill: #dbeafe;
+            --svg-decoder-fill: #fce7f3;
+            --svg-attention-fill: #f3e8ff;
+            --svg-context-fill: #fef3c7;
+            --svg-bottleneck-fill: #fee2e2;
+            --table-hover-bg: #f6f8fa;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #0d1117;
+            --text-color: #c9d1d9;
+            --text-secondary: #8b949e;
+            --heading-color: #f0f6fc;
+            --accent-color: #58a6ff;
+            --accent-light: #1c2d41;
+            --code-bg: #161b22;
+            --border-color: #30363d;
+            --highlight-bg: #3d3d00;
+            --link-color: #58a6ff;
+            --success-color: #3fb950;
+            --warning-color: #d29922;
+            --danger-color: #f85149;
+            --diagram-bg: linear-gradient(135deg, #161b22 0%, #0d1117 100%);
+            --callout-note-bg: #1c2d41;
+            --callout-tip-bg: #1a3a2a;
+            --callout-important-bg: #3d3d00;
+            --callout-warning-bg: #3d1f1f;
+            --svg-box-fill: #1c2128;
+            --svg-encoder-fill: #1c2d41;
+            --svg-decoder-fill: #3d1f3d;
+            --svg-attention-fill: #2d1f3d;
+            --svg-context-fill: #3d3000;
+            --svg-bottleneck-fill: #3d1f1f;
+            --table-hover-bg: #161b22;
+        }
+
+        /* RESET & BASE */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.7;
+            font-size: 17px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* CONTAINER & LAYOUT */
+        .container {
+            max-width: 760px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem;
+        }
+
+        article {
+            padding: 2rem 0;
+        }
+
+        /* THEME TOGGLE BUTTON - SMALL CIRCULAR */
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: var(--code-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            font-size: 1.5rem;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+            border-color: var(--accent-color);
+        }
+
+        .theme-toggle:active {
+            transform: scale(0.95);
+        }
+
+        .theme-icon {
+            transition: transform 0.5s ease;
+        }
+
+        .theme-toggle:hover .theme-icon {
+            transform: rotate(180deg);
+        }
+
+        /* HEADER */
+        .article-header {
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .article-header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--heading-color);
+            line-height: 1.2;
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.02em;
+        }
+
+        .article-meta {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-top: 0.75rem;
+        }
+
+        .article-meta span {
+            margin-right: 1.5rem;
+        }
+
+        /* TYPOGRAPHY */
+        h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--heading-color);
+            margin: 3rem 0 1.25rem;
+            letter-spacing: -0.01em;
+        }
+
+        h3 {
+            font-size: 1.35rem;
+            font-weight: 600;
+            color: var(--heading-color);
+            margin: 2.5rem 0 1rem;
+        }
+
+        h4 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--heading-color);
+            margin: 2rem 0 0.75rem;
+        }
+
+        p {
+            margin-bottom: 1.25rem;
+            color: var(--text-color);
+        }
+
+        strong {
+            font-weight: 600;
+            color: var(--heading-color);
+        }
+
+        em {
+            font-style: italic;
+        }
+
+        a {
+            color: var(--link-color);
+            text-decoration: none;
+            border-bottom: 1px solid transparent;
+            transition: border-bottom 0.2s ease;
+        }
+
+        a:hover {
+            border-bottom: 1px solid var(--link-color);
+        }
+
+        /* LISTS */
+        ul, ol {
+            margin: 1.25rem 0;
+            padding-left: 2rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+            line-height: 1.7;
+        }
+
+        /* INLINE CODE */
+        code {
+            background-color: var(--code-bg);
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9em;
+            color: var(--text-color);
+        }
+
+        /* CODE BLOCKS */
+        .code-block {
+            margin: 2rem 0;
+            position: relative;
+        }
+
+        .code-header {
+            background-color: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px 6px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .code-header .language {
+            font-weight: 500;
+            color: var(--text-color);
+        }
+
+        .copy-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .copy-btn:hover {
+            background-color: var(--code-bg);
+            border-color: var(--text-secondary);
+            color: var(--text-color);
+        }
+
+        .copy-btn.copied {
+            background-color: #28a745;
+            border-color: #28a745;
+            color: white;
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 0 0 6px 6px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--text-color);
+        }
+
+        .code-block.no-header pre {
+            border-radius: 6px;
+        }
+
+        /* Syntax highlighting */
+        .comment { color: #6a737d; font-style: italic; }
+        .keyword { color: #d73a49; }
+        .string { color: #032f62; }
+        .function { color: #6f42c1; }
+        .number { color: #005cc5; }
+        .operator { color: #d73a49; }
+        .class-name { color: #6f42c1; font-weight: 500; }
+
+        [data-theme="dark"] .comment { color: #8b949e; }
+        [data-theme="dark"] .keyword { color: #ff7b72; }
+        [data-theme="dark"] .string { color: #a5d6ff; }
+        [data-theme="dark"] .function { color: #d2a8ff; }
+        [data-theme="dark"] .number { color: #79c0ff; }
+        [data-theme="dark"] .operator { color: #ff7b72; }
+        [data-theme="dark"] .class-name { color: #d2a8ff; }
+
+        /* CALLOUT BOXES */
+        .callout {
+            margin: 2rem 0;
+            padding: 1.25rem;
+            border-radius: 6px;
+            border-left: 4px solid;
+            transition: background-color 0.3s ease;
+        }
+
+        .callout-note {
+            background-color: var(--callout-note-bg);
+            border-color: #0366d6;
+        }
+
+        .callout-tip {
+            background-color: var(--callout-tip-bg);
+            border-color: #28a745;
+        }
+
+        .callout-important {
+            background-color: var(--callout-important-bg);
+            border-color: #ffd33d;
+        }
+
+        .callout-warning {
+            background-color: var(--callout-warning-bg);
+            border-color: #d73a49;
+        }
+
+        .callout-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--heading-color);
+        }
+
+        /* MATH BLOCKS */
+        .math-block {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background-color: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+
+        .math-block .equation {
+            font-family: 'Georgia', serif;
+            font-size: 1.1rem;
+            text-align: center;
+            margin: 0.75rem 0;
+            color: var(--text-color);
+        }
+
+        .math-block .equation-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-align: center;
+            margin-top: 0.5rem;
+            font-style: italic;
+        }
+
+        /* BEAUTIFUL SVG DIAGRAMS */
+        .diagram-container {
+            margin: 2.5rem 0;
+            padding: 2rem;
+            background: var(--diagram-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            transition: all 0.3s ease;
+        }
+
+        [data-theme="dark"] .diagram-container {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .diagram-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+            color: var(--heading-color);
+            text-align: center;
+        }
+
+        .diagram-svg {
+            width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .diagram-caption {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            text-align: center;
+            font-style: italic;
+            line-height: 1.5;
+        }
+
+        /* SVG Styling */
+        .svg-box {
+            fill: var(--svg-box-fill);
+            stroke: var(--accent-color);
+            stroke-width: 2;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+            transition: fill 0.3s ease;
+        }
+
+        .svg-text {
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            fill: var(--text-color);
+            font-weight: 500;
+            transition: fill 0.3s ease;
+        }
+
+        .svg-label {
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            fill: var(--text-secondary);
+            transition: fill 0.3s ease;
+        }
+
+        .svg-arrow {
+            stroke: var(--accent-color);
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead);
+            transition: stroke 0.3s ease;
+        }
+
+        .svg-attention-arrow {
+            stroke: #9333ea;
+            stroke-width: 2;
+            stroke-dasharray: 5, 5;
+            fill: none;
+            marker-end: url(#arrowhead-purple);
+        }
+
+        .svg-encoder-box {
+            fill: var(--svg-encoder-fill);
+            stroke: #3b82f6;
+            stroke-width: 2;
+            transition: fill 0.3s ease;
+        }
+
+        .svg-decoder-box {
+            fill: var(--svg-decoder-fill);
+            stroke: #ec4899;
+            stroke-width: 2;
+            transition: fill 0.3s ease;
+        }
+
+        .svg-attention-box {
+            fill: var(--svg-attention-fill);
+            stroke: #9333ea;
+            stroke-width: 2;
+            transition: fill 0.3s ease;
+        }
+
+        .svg-context-box {
+            fill: var(--svg-context-fill);
+            stroke: #f59e0b;
+            stroke-width: 2;
+            transition: fill 0.3s ease;
+        }
+
+        .svg-bottleneck {
+            fill: var(--svg-bottleneck-fill);
+            stroke: #ef4444;
+            stroke-width: 2;
+            transition: fill 0.3s ease;
+        }
+
+        /* TABLES */
+        table {
+            width: 100%;
+            margin: 2rem 0;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+        }
+
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: var(--code-bg);
+            font-weight: 600;
+            color: var(--heading-color);
+        }
+
+        tr:hover {
+            background-color: var(--table-hover-bg);
+        }
+
+        /* IMAGES */
+        img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+            margin: 2rem 0;
+        }
+
+        .image-caption {
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: -1rem;
+            margin-bottom: 2rem;
+            font-style: italic;
+        }
+
+        /* FOOTER */
+        .article-footer {
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            body {
+                font-size: 16px;
+            }
+
+            .container {
+                padding: 1.5rem 1rem;
+            }
+
+            .article-header h1 {
+                font-size: 2rem;
+            }
+
+            h2 {
+                font-size: 1.5rem;
+            }
+
+            h3 {
+                font-size: 1.25rem;
+            }
+
+            pre {
+                font-size: 0.85rem;
+            }
+
+            .diagram-container {
+                padding: 1rem;
+            }
+
+            .svg-text {
+                font-size: 12px;
+            }
+
+            .svg-label {
+                font-size: 10px;
+            }
+        }
+
+        /* PRINT STYLES */
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+
+            .copy-btn {
+                display: none;
+            }
+
+            .theme-toggle {
+                display: none;
+            }
+
+            a {
+                color: black;
+                text-decoration: underline;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Small Theme Toggle Button - Fixed Position -->
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+        <span class="theme-icon">🌙</span>
+    </button>
+
+    <div class="container">
+        <article>
+            <header class="article-header">
+                <h1>Understanding Bahdanau Attention: A Visual Guide</h1>
+            </header>
+
+            <!-- INTRODUCTION -->
+            <section id="introduction">
+                <h2>The Problem: Why Do We Need Attention?</h2>
+                
+                <p>Let's start with a simple question: How would you translate the sentence <em>"Je suis étudiant"</em> to English?</p>
+                
+                <p>You'd probably think: "I am a student." Easy, right? But here's the interesting part: when translating the word "étudiant," your brain automatically looks back at the entire French sentence to understand the context. You don't just remember some compressed summary of the first two words—you actively <strong>attend</strong> to the relevant parts.</p>
+
+                <p>Traditional encoder-decoder models couldn't do this. They would:</p>
+                <ol>
+                    <li>Read the entire input sentence</li>
+                    <li>Compress it into a single fixed-size vector (the "bottleneck")</li>
+                    <li>Try to generate the output using only that compressed summary</li>
+                </ol>
+
+                <p>This is like trying to remember a long paragraph by writing just one sentence about it. Information gets lost, especially for longer inputs.</p>
+
+                <div class="callout callout-important">
+                    <div class="callout-title">💡 The Key Insight</div>
+                    <p>Bahdanau attention solves this by letting the decoder "look back" at the input at each step. Instead of one fixed summary, we create a custom summary for each output word we generate.</p>
+                </div>
+            </section>
+
+            <!-- BAHDANAU VS LUONG SIDE BY SIDE -->
+            <section id="comparison">
+                <h2>Bahdanau vs Luong: Side-by-Side Comparison</h2>
+
+                <p>These are the two most famous attention mechanisms. Let's see them side by side:</p>
+
+                <div class="diagram-container">
+                    <div class="diagram-title">Bahdanau vs Luong Attention Mechanisms</div>
+                   <svg viewBox="0 0 1100 600" class="diagram-svg" style="background-color: #121826;">
+    <defs>
+        <style>
+            /* General text styles for better readability on a dark background */
+            .svg-text {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                fill: #e5e7eb;
+            }
+            .svg-label {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                fill: #d1d5db;
+            }
+
+            /* Box styles with specific fill colors for each component */
+            .svg-decoder-box { fill: #ec4899; }
+            .svg-encoder-box { fill: #3b82f6; }
+            .svg-attention-box { fill: #9333ea; }
+            .svg-context-box { fill: #ca8a04; }
+        </style>
+        <!-- Arrowhead markers for the paths -->
+        <marker id="arrow-bahdanau" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+            <polygon points="0 0, 10 3, 0 6" fill="#9333ea" />
+        </marker>
+        <marker id="arrow-luong" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+            <polygon points="0 0, 10 3, 0 6" fill="#3b82f6" />
+        </marker>
+        <marker id="arrow-orange" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+            <polygon points="0 0, 10 3, 0 6" fill="#f59e0b" />
+        </marker>
+    </defs>
+
+    <!-- ============= BAHDANAU (LEFT) ============= -->
+    <rect x="30" y="30" width="500" height="490" rx="15" style="fill: none; stroke: #9333ea; stroke-width: 3; stroke-dasharray: 12,6;"/>
+    
+    <text x="280" y="65" class="svg-text" text-anchor="middle" style="font-weight: 700; font-size: 22px; fill: #9333ea;">BAHDANAU</text>
+    <text x="280" y="88" class="svg-label" text-anchor="middle" style="font-size: 14px;">(Additive Attention)</text>
+
+    <!-- Decoder State -->
+    <rect x="80" y="120" width="140" height="55" rx="8" class="svg-decoder-box"/>
+    <text x="150" y="153" class="svg-text" text-anchor="middle" style="font-size: 16px;">Decoder sₜ₋₁</text>
+
+    <!-- Transform W1 -->
+    <path d="M 150 175 L 150 210" stroke="#ec4899" stroke-width="3" marker-end="url(#arrow-bahdanau)"/>
+    <text x="170" y="195" class="svg-label" style="font-size: 12px;">W₁</text>
+
+    <rect x="80" y="210" width="140" height="50" rx="8" class="svg-decoder-box"/>
+    <text x="150" y="240" class="svg-text" text-anchor="middle">W₁·sₜ₋₁</text>
+
+    <!-- Encoder State -->
+    <rect x="340" y="120" width="140" height="55" rx="8" class="svg-encoder-box"/>
+    <text x="410" y="153" class="svg-text" text-anchor="middle" style="font-size: 16px;">Encoder hᵢ</text>
+
+    <!-- Transform W2 -->
+    <path d="M 410 175 L 410 210" stroke="#3b82f6" stroke-width="3" marker-end="url(#arrow-bahdanau)"/>
+    <text x="430" y="195" class="svg-label" style="font-size: 12px;">W₂</text>
+
+    <rect x="340" y="210" width="140" height="50" rx="8" class="svg-encoder-box"/>
+    <text x="410" y="240" class="svg-text" text-anchor="middle">W₂·hᵢ</text>
+
+    <!-- Addition -->
+    <text x="280" y="245" style="font-size: 48px; fill: #9333ea; font-weight: 700;">+</text>
+
+    <!-- Arrows to tanh -->
+    <path d="M 150 260 L 280 300" stroke="#9333ea" stroke-width="2.5"/>
+    <path d="M 410 260 L 280 300" stroke="#9333ea" stroke-width="2.5"/>
+
+    <!-- Tanh -->
+    <rect x="210" y="300" width="140" height="55" rx="8" class="svg-attention-box"/>
+    <text x="280" y="333" class="svg-text" text-anchor="middle" style="font-size: 17px; font-weight: 600;">tanh(...)</text>
+
+    <!-- Arrow to v -->
+    <path d="M 280 355 L 280 390" stroke="#9333ea" stroke-width="3" marker-end="url(#arrow-bahdanau)"/>
+
+    <!-- V vector -->
+    <rect x="210" y="390" width="140" height="55" rx="8" class="svg-context-box"/>
+    <text x="280" y="423" class="svg-text" text-anchor="middle" style="font-size: 17px; font-weight: 600;">v</text>
+
+    <!-- Final Score -->
+    <text x="280" y="555" class="svg-text" text-anchor="middle" style="font-weight: 600; fill: #f59e0b; font-size: 16px;">scoreᵢ</text>
+
+    <!-- ============= LUONG (RIGHT) ============= -->
+    <rect x="570" y="30" width="500" height="490" rx="15" style="fill: none; stroke: #3b82f6; stroke-width: 3; stroke-dasharray: 12,6;"/>
+    
+    <text x="820" y="65" class="svg-text" text-anchor="middle" style="font-weight: 700; font-size: 22px; fill: #3b82f6;">LUONG</text>
+    <text x="820" y="88" class="svg-label" text-anchor="middle" style="font-size: 14px;">(Multiplicative Attention)</text>
+
+    <!-- Decoder State -->
+    <rect x="650" y="200" width="140" height="55" rx="8" class="svg-decoder-box"/>
+    <text x="720" y="233" class="svg-text" text-anchor="middle" style="font-size: 16px;">Decoder sₜ</text>
+
+    <!-- Dot product symbol -->
+    <text x="820" y="240" style="font-size: 50px; fill: #3b82f6; font-weight: 700;">·</text>
+
+    <!-- Encoder State -->
+    <rect x="880" y="200" width="140" height="55" rx="8" class="svg-encoder-box"/>
+    <text x="950" y="233" class="svg-text" text-anchor="middle" style="font-size: 16px;">Encoder hᵢ</text>
+    <text x="820" y="280" class="svg-label" text-anchor="middle" style="font-size: 13px;">(optional: sₜᵀ · W · hᵢ)</text>
+
+
+    <!-- Arrows to score -->
+    <path d="M 720 255 L 820 380" stroke="#3b82f6" stroke-width="2.5"/>
+    <path d="M 950 255 L 820 380" stroke="#3b82f6" stroke-width="2.5"/>
+
+    <!-- Direct score box -->
+    <!-- FIX: Replaced CSS variable with direct hex color for better compatibility -->
+    <rect x="750" y="380" width="140" height="55" rx="8" style="fill: #3b82f6; stroke: #3b82f6; stroke-width: 2;"/>
+    <text x="820" y="413" class="svg-text" text-anchor="middle" style="font-size: 17px; font-weight: 600;">similarity</text>
+
+    <!-- Final Score -->
+    <text x="820" y="555" class="svg-text" text-anchor="middle" style="font-weight: 600; fill: #f59e0b; font-size: 16px;">scoreᵢ</text>
+</svg>
+                    <div class="diagram-caption">
+                        <strong>Key Difference:</strong> Bahdanau <em>adds</em> transformed states (W₁·sₜ + W₂·hᵢ) then applies a learned vector, while Luong directly computes <em>dot product similarity</em> (sₜ · hᵢ). Bahdanau can learn more complex alignment patterns, while Luong is simpler and faster.
+                    </div>
+                </div>
+
+                <h3>When Each Step Happens</h3>
+
+                <div class="callout callout-note">
+                    <div class="callout-title">⏱️ Timing Difference</div>
+                    <p><strong>Bahdanau:</strong> Attention is computed <em>before</em> the decoder RNN step using the previous hidden state sₜ₋₁</p>
+                    <p><strong>Luong:</strong> Attention is computed <em>after</em> the decoder RNN step using the current hidden state sₜ</p>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Feature</th>
+                            <th>Bahdanau</th>
+                            <th>Luong</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Score Function</strong></td>
+                            <td><code>v<sup>T</sup> · tanh(W₁sₜ₋₁ + W₂hᵢ)</code></td>
+                            <td><code>sₜ<sup>T</sup> · hᵢ</code> or <code>sₜ<sup>T</sup> · W · hᵢ</code></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Type</strong></td>
+                            <td>Additive (concat then project)</td>
+                            <td>Multiplicative (dot product)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Computation Time</strong></td>
+                            <td>Before decoder RNN</td>
+                            <td>After decoder RNN</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Complexity</strong></td>
+                            <td>O(hidden_size²)</td>
+                            <td>O(hidden_size) or O(hidden_size²)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Parameters</strong></td>
+                            <td>W₁, W₂, v (more parameters)</td>
+                            <td>None or W (fewer parameters)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Best For</strong></td>
+                            <td>Complex alignment patterns</td>
+                            <td>Speed and simplicity</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Paper Year</strong></td>
+                            <td>2015 (Bahdanau et al.)</td>
+                            <td>2015 (Luong et al.)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- THE ATTENTION IDEA -->
+            <section id="attention-concept">
+                <h2>The Bahdanau Attention Idea (In Plain English)</h2>
+
+                <p>Here's the core idea broken down into simple steps:</p>
+
+                <!-- ATTENTION MECHANISM DIAGRAM -->
+                <div class="diagram-container">
+                    <div class="diagram-title">Bahdanau Attention: Dynamic Context at Each Step</div>
+                    <svg viewBox="0 0 900 540" class="diagram-svg">
+                        <defs>
+                            <marker id="arrowhead-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                <polygon points="0 0, 10 3, 0 6" fill="#3b82f6" />
+                            </marker>
+                            <marker id="arrowhead-purple" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                <polygon points="0 0, 10 3, 0 6" fill="#9333ea" />
+                            </marker>
+                            <marker id="arrowhead-orange" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                <polygon points="0 0, 10 3, 0 6" fill="#f59e0b" />
+                            </marker>
+                            <marker id="arrowhead-pink" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                <polygon points="0 0, 10 3, 0 6" fill="#ec4899" />
+                            </marker>
+                        </defs>
+
+                        <!-- Encoder Section -->
+                        <text x="280" y="30" class="svg-text" text-anchor="middle" style="font-weight: 600; font-size: 16px;">ENCODER</text>
+                        
+                        <rect x="100" y="50" width="100" height="65" rx="8" class="svg-encoder-box"/>
+                        <text x="150" y="78" class="svg-text" text-anchor="middle">h₁</text>
+                        <text x="150" y="98" class="svg-label" text-anchor="middle">"Je"</text>
+                        
+                        <rect x="230" y="50" width="100" height="65" rx="8" class="svg-encoder-box"/>
+                        <text x="280" y="78" class="svg-text" text-anchor="middle">h₂</text>
+                        <text x="280" y="98" class="svg-label" text-anchor="middle">"suis"</text>
+                        
+                        <rect x="360" y="50" width="100" height="65" rx="8" class="svg-encoder-box"/>
+                        <text x="410" y="78" class="svg-text" text-anchor="middle">h₃</text>
+                        <text x="410" y="98" class="svg-label" text-anchor="middle">"étudiant"</text>
+
+                        <!-- Arrows between encoder -->
+                        <path d="M 200 82 L 230 82" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrowhead-blue)"/>
+                        <path d="M 330 82 L 360 82" stroke="#3b82f6" stroke-width="2" marker-end="url(#arrowhead-blue)"/>
+
+                        <!-- Attention arrows from encoder -->
+                        <path d="M 150 115 L 150 180" stroke="#9333ea" stroke-width="2" stroke-dasharray="5,5" marker-end="url(#arrowhead-purple)"/>
+                        <path d="M 280 115 L 280 180" stroke="#9333ea" stroke-width="2" stroke-dasharray="5,5" marker-end="url(#arrowhead-purple)"/>
+                        <path d="M 410 115 L 410 180" stroke="#9333ea" stroke-width="2" stroke-dasharray="5,5" marker-end="url(#arrowhead-purple)"/>
+
+                        <!-- Attention Mechanism Box -->
+                        <rect x="80" y="180" width="700" height="140" rx="10" class="svg-attention-box" style="fill: var(--svg-attention-fill);"/>
+                        <text x="430" y="210" class="svg-text" text-anchor="middle" style="font-weight: 600; font-size: 16px; fill: #9333ea;">ATTENTION MECHANISM</text>
+                        
+                        <!-- Step 1: Compare -->
+                        <rect x="110" y="230" width="150" height="70" rx="6" class="svg-box"/>
+                        <text x="185" y="255" class="svg-label" text-anchor="middle" style="font-size: 11px;">Step 1: Compare</text>
+                        <text x="185" y="275" class="svg-text" text-anchor="middle" style="font-size: 13px;">Score(sₜ, hᵢ)</text>
+
+                        <!-- Arrow -->
+                        <path d="M 260 265 L 300 265" stroke="#9333ea" stroke-width="2" marker-end="url(#arrowhead-purple)"/>
+
+                        <!-- Step 2: Softmax -->
+                        <rect x="300" y="230" width="140" height="70" rx="6" class="svg-box"/>
+                        <text x="370" y="255" class="svg-label" text-anchor="middle" style="font-size: 11px;">Step 2: Normalize</text>
+                        <text x="370" y="275" class="svg-text" text-anchor="middle" style="font-size: 13px;">softmax → αᵢ</text>
+
+                        <!-- Arrow -->
+                        <path d="M 440 265 L 480 265" stroke="#9333ea" stroke-width="2" marker-end="url(#arrowhead-purple)"/>
+
+                        <!-- Step 3: Weighted Sum -->
+                        <rect x="480" y="230" width="170" height="70" rx="6" class="svg-context-box"/>
+                        <text x="565" y="255" class="svg-label" text-anchor="middle" style="font-size: 11px;">Step 3: Context</text>
+                        <text x="565" y="275" class="svg-text" text-anchor="middle" style="font-size: 13px;">cₜ = Σ αᵢ · hᵢ</text>
+
+                        <!-- Arrow from context to decoder -->
+                        <path d="M 565 320 L 565 385" stroke="#f59e0b" stroke-width="3" marker-end="url(#arrowhead-orange)"/>
+                        <text x="585" y="355" class="svg-label" style="font-size: 12px; fill: #f59e0b; font-weight: 600;">context</text>
+
+                        <!-- Decoder Section -->
+                        <text x="565" y="415" class="svg-text" text-anchor="middle" style="font-weight: 600; font-size: 16px;">DECODER</text>
+                        
+                        <rect x="150" y="440" width="100" height="65" rx="8" class="svg-decoder-box"/>
+                        <text x="200" y="468" class="svg-text" text-anchor="middle">s₁</text>
+                        <text x="200" y="488" class="svg-label" text-anchor="middle">"I"</text>
+                        
+                        <rect x="280" y="440" width="100" height="65" rx="8" class="svg-decoder-box"/>
+                        <text x="330" y="468" class="svg-text" text-anchor="middle">s₂</text>
+                        <text x="330" y="488" class="svg-label" text-anchor="middle">"am"</text>
+                        
+                        <rect x="410" y="440" width="100" height="65" rx="8" class="svg-decoder-box"/>
+                        <text x="460" y="468" class="svg-text" text-anchor="middle">s₃</text>
+                        <text x="460" y="488" class="svg-label" text-anchor="middle">"a"</text>
+                        
+                        <rect x="540" y="440" width="120" height="65" rx="8" class="svg-decoder-box"/>
+                        <text x="600" y="468" class="svg-text" text-anchor="middle">s₄</text>
+                        <text x="600" y="488" class="svg-label" text-anchor="middle">"student"</text>
+
+                        <!-- Arrows between decoder states -->
+                        <path d="M 250 472 L 280 472" stroke="#ec4899" stroke-width="2" marker-end="url(#arrowhead-pink)"/>
+                        <path d="M 380 472 L 410 472" stroke="#ec4899" stroke-width="2" marker-end="url(#arrowhead-pink)"/>
+                        <path d="M 510 472 L 540 472" stroke="#ec4899" stroke-width="2" marker-end="url(#arrowhead-pink)"/>
+
+                        <!-- Decoder feedback to attention -->
+                        <path d="M 330 440 L 330 340 L 185 340 L 185 300" stroke="#ec4899" stroke-width="2" stroke-dasharray="5,5" marker-end="url(#arrowhead-pink)"/>
+                        <text x="260" y="355" class="svg-label" style="font-size: 11px; fill: #ec4899;">decoder state</text>
+                    </svg>
+                    <div class="diagram-caption">
+                        Bahdanau Attention creates a unique context vector for each decoder step by dynamically attending to all encoder hidden states.
+                    </div>
+                </div>
+
+                <p>Think of attention as a smart spotlight that shines on different parts of the input depending on what you're trying to generate right now.</p>
+            </section>
+
+            <!-- THE MATH (GENTLE INTRODUCTION) -->
+            <section id="attention-math">
+                <h2>The Math Behind Bahdanau Attention (Gently)</h2>
+
+                <p>Don't worry—we'll build this up step by step. Let's start with what we have:</p>
+
+                <ul>
+                    <li><strong>Encoder hidden states:</strong> <code>h₁, h₂, h₃, ..., hₙ</code> (one for each input word)</li>
+                    <li><strong>Current decoder state:</strong> <code>sₜ</code> (where the decoder is right now)</li>
+                </ul>
+
+                <h3>Step 1: Calculate Alignment Scores (The "Bahdanau" Part)</h3>
+                
+                <p>First, we need to figure out how relevant each input word is for our current decoding step. This is where Bahdanau attention differs from other types—it uses an <strong>additive</strong> scoring function:</p>
+
+                <div class="math-block">
+                    <div class="equation">
+                        score(sₜ, hᵢ) = v<sup>T</sup> · tanh(W₁·sₜ + W₂·hᵢ)
+                    </div>
+                    <div class="equation-label">Bahdanau Additive Attention Score</div>
+                </div>
+
+                <p>Let's break this down in plain English:</p>
+                
+                <ul>
+                    <li><code>W₁·sₜ</code> transforms the decoder state into an "attention space"</li>
+                    <li><code>W₂·hᵢ</code> transforms each encoder state into the same "attention space"</li>
+                    <li>We <strong>add</strong> them together (this is why it's called "additive")</li>
+                    <li>Apply <code>tanh</code> to squash values between -1 and 1</li>
+                    <li><code>v<sup>T</sup></code> is a learned vector that converts this to a single score</li>
+                </ul>
+
+                <div class="callout callout-note">
+                    <div class="callout-title">🔍 Why Additive?</div>
+                    <p>The key insight: by adding the transformed states before scoring, the model can learn complex non-linear relationships between the decoder and encoder. The matrices W₁, W₂, and vector v are all learned during training.</p>
+                </div>
+
+                <h3>Step 2: Convert Scores to Weights</h3>
+
+                <p>Raw scores aren't that useful. We want probabilities that sum to 1. Enter softmax:</p>
+
+                <div class="math-block">
+                    <div class="equation">
+                        αₜᵢ = exp(score(sₜ, hᵢ)) / Σⱼ exp(score(sₜ, hⱼ))
+                    </div>
+                    <div class="equation-label">Attention Weights (sum to 1.0)</div>
+                </div>
+
+                <p>Softmax takes our scores and converts them into a probability distribution. High scores become high probabilities, low scores become low probabilities.</p>
+
+                <h3>Step 3: Create the Context Vector</h3>
+
+                <p>Now we take a weighted average of all encoder hidden states:</p>
+
+                <div class="math-block">
+                    <div class="equation">
+                        cₜ = Σᵢ αₜᵢ · hᵢ
+                    </div>
+                    <div class="equation-label">Context Vector (weighted sum)</div>
+                </div>
+
+                <p>This context vector <code>cₜ</code> is a custom blend of the input, weighted by relevance. It's like making a smoothie where you add more of the ingredients that matter for the current situation.</p>
+
+                <h3>Step 4: Use Context to Generate Output</h3>
+
+                <p>Finally, we combine the context vector with our current decoder state to predict the next word:</p>
+
+                <div class="math-block">
+                    <div class="equation">
+                        yₜ = softmax(W · [sₜ; cₜ])
+                    </div>
+                    <div class="equation-label">Output Prediction</div>
+                </div>
+
+                <p>The semicolon <code>[sₜ; cₜ]</code> means concatenation—we just stack the two vectors together.</p>
+            </section>
+
+            <!-- CODE IMPLEMENTATION -->
+            <section id="implementation">
+                <h2>Let's Build It in PyTorch</h2>
+
+                <p>Now comes the fun part—let's implement Bahdanau attention from scratch. We'll build a simple character-level sequence-to-sequence model with attention that learns to reverse words.</p>
+
+                <h3>Part 1: The Attention Mechanism</h3>
+
+                <p>This is the heart of everything. Let's build it piece by piece:</p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">Python</span>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    </div>
+                    <pre><code><span class="keyword">import</span> torch
+<span class="keyword">import</span> torch.nn <span class="keyword">as</span> nn
+
+<span class="keyword">class</span> <span class="class-name">BahdanauAttention</span>(nn.Module):
+    <span class="string">"""
+    Bahdanau (Additive) Attention Mechanism
+    
+    This is where the magic happens!
+    """</span>
+    
+    <span class="keyword">def</span> <span class="function">__init__</span>(<span class="keyword">self</span>, hidden_size):
+        <span class="function">super</span>().__init__()
+        
+        <span class="comment"># W₁ and W₂ from our equations</span>
+        <span class="keyword">self</span>.W_decoder = nn.Linear(hidden_size, hidden_size)
+        <span class="keyword">self</span>.W_encoder = nn.Linear(hidden_size, hidden_size)
+        
+        <span class="comment"># v vector for final score</span>
+        <span class="keyword">self</span>.V = nn.Linear(hidden_size, <span class="number">1</span>)
+    
+    <span class="keyword">def</span> <span class="function">forward</span>(<span class="keyword">self</span>, decoder_state, encoder_states):
+        <span class="comment"># Transform states</span>
+        decoder_transformed = <span class="keyword">self</span>.W_decoder(decoder_state.unsqueeze(<span class="number">1</span>))
+        encoder_transformed = <span class="keyword">self</span>.W_encoder(encoder_states)
+        
+        <span class="comment"># THE ADDITIVE PART!</span>
+        energy = torch.tanh(decoder_transformed + encoder_transformed)
+        
+        <span class="comment"># Calculate scores</span>
+        scores = <span class="keyword">self</span>.V(energy)
+        
+        <span class="comment"># Apply softmax</span>
+        attention_weights = torch.softmax(scores, dim=<span class="number">1</span>)
+        
+        <span class="comment"># Create context vector</span>
+        context_vector = torch.sum(attention_weights * encoder_states, dim=<span class="number">1</span>)
+        
+        <span class="keyword">return</span> context_vector, attention_weights</code></pre>
+                </div>
+
+                <div class="callout callout-tip">
+                    <div class="callout-title">💡 The Key Line</div>
+                    <p>The line <code>energy = torch.tanh(decoder_transformed + encoder_transformed)</code> is what makes this Bahdanau attention. We <strong>add</strong> the transformed states before applying the non-linearity.</p>
+                </div>
+
+                <h3>Part 2: Luong Attention (For Comparison)</h3>
+
+                <p>Here's how simple Luong attention is in comparison:</p>
+
+                <div class="code-block">
+                    <div class="code-header">
+                        <span class="language">Python</span>
+                        <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                    </div>
+                    <pre><code><span class="keyword">class</span> <span class="class-name">LuongAttention</span>(nn.Module):
+    <span class="string">"""
+    Luong (Multiplicative) Attention Mechanism
+    
+    Much simpler - just a dot product!
+    """</span>
+    
+    <span class="keyword">def</span> <span class="function">__init__</span>(<span class="keyword">self</span>, hidden_size):
+        <span class="function">super</span>().__init__()
+        <span class="comment"># Optional: general scoring with weight matrix</span>
+        <span class="keyword">self</span>.W = nn.Linear(hidden_size, hidden_size, bias=<span class="keyword">False</span>)
+    
+    <span class="keyword">def</span> <span class="function">forward</span>(<span class="keyword">self</span>, decoder_state, encoder_states):
+        <span class="comment"># Transform decoder state (optional)</span>
+        decoder_transformed = <span class="keyword">self</span>.W(decoder_state)  <span class="comment"># (batch, hidden)</span>
+        
+        <span class="comment"># DOT PRODUCT - that's it!</span>
+        scores = torch.bmm(
+            decoder_transformed.unsqueeze(<span class="number">1</span>),  <span class="comment"># (batch, 1, hidden)</span>
+            encoder_states.transpose(<span class="number">1</span>, <span class="number">2</span>)    <span class="comment"># (batch, hidden, seq_len)</span>
+        ).squeeze(<span class="number">1</span>)  <span class="comment"># (batch, seq_len)</span>
+        
+        <span class="comment"># Apply softmax</span>
+        attention_weights = torch.softmax(scores, dim=<span class="number">1</span>).unsqueeze(<span class="number">2</span>)
+        
+        <span class="comment"># Create context vector</span>
+        context_vector = torch.sum(attention_weights * encoder_states, dim=<span class="number">1</span>)
+        
+        <span class="keyword">return</span> context_vector, attention_weights</code></pre>
+                </div>
+
+                <div class="callout callout-note">
+                    <div class="callout-title">📊 Comparison</div>
+                    <p><strong>Bahdanau:</strong> 3 learnable weight matrices (W₁, W₂, v), non-linear tanh, ~5-6 lines of computation</p>
+                    <p><strong>Luong:</strong> 1 optional weight matrix (W), linear dot product, ~2-3 lines of computation</p>
+                    <p>Luong is faster and simpler, but Bahdanau can learn more complex alignment patterns.</p>
+                </div>
+            </section>
+
+            <!-- CONCLUSION -->
+            <section id="conclusion">
+                <h2>Wrapping Up</h2>
+
+                <p>Bahdanau attention was a genuine breakthrough in deep learning. It solved a fundamental problem (the information bottleneck) in an elegant way: instead of trying to compress everything into one vector, just let the model look back whenever it needs to.</p>
+
+                <div class="callout callout-tip">
+                    <div class="callout-title">The Essence of Bahdanau Attention</div>
+                    <p style="text-align: center; font-size: 1.1rem; margin: 1rem 0;">
+                        <strong>At each decoding step:</strong><br>
+                        1. Compare the current decoder state with all encoder states<br>
+                        2. Calculate attention weights (how much to focus on each input)<br>
+                        3. Create a custom context vector (weighted sum of encoder states)<br>
+                        4. Use this context to make better predictions
+                    </p>
+                </div>
+
+                <div class="callout callout-important">
+                    <div class="callout-title">🚀 From Bahdanau to Modern AI</div>
+                    <p>The attention mechanism you learned here is the direct ancestor of Transformers (GPT, BERT, Claude, etc.). Transformers asked: "What if we use ONLY attention and no RNNs at all?" That simple insight, building on Bahdanau's foundation, led to the current AI revolution.</p>
+                </div>
+
+                <h3>What You've Learned</h3>
+
+                <ul>
+                    <li>✅ Why traditional seq2seq had an information bottleneck</li>
+                    <li>✅ How Bahdanau attention solves it with additive scoring</li>
+                    <li>✅ How Luong attention differs with multiplicative scoring</li>
+                    <li>✅ The math behind attention (scores, softmax, weighted sums)</li>
+                    <li>✅ How to implement both in PyTorch from scratch</li>
+                    <li>✅ When to use each type of attention</li>
+                    <li>✅ How this connects to modern Transformers</li>
+                </ul>
+
+                <p>Happy coding, and may your models always attend to the right things! 🎯✨</p>
+            </section>
+
+            <!-- FOOTER -->
+            <footer class="article-footer">
+                <p><strong>About this post:</strong> This is an educational guide to understanding Bahdanau and Luong attention mechanisms in sequence-to-sequence models. All code is provided as-is for learning purposes.</p>
+                <p><strong>Citation:</strong> Bahdanau, D., Cho, K., & Bengio, Y. (2015). Neural machine translation by jointly learning to align and translate. <em>ICLR 2015</em>. | Luong, M. T., Pham, H., & Manning, C. D. (2015). Effective approaches to attention-based neural machine translation. <em>EMNLP 2015</em>.</p>
+                <p style="margin-top: 1rem; color: var(--text-secondary);">Written with ❤️ for learners</p>
+            </footer>
+        </article>
+    </div>
+
+    <script>
+        // Theme Toggle Functionality
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = themeToggle.querySelector('.theme-icon');
+        const html = document.documentElement;
+
+        // Check for saved theme preference or default to 'light'
+        const currentTheme = localStorage.getItem('theme') || 'light';
+        html.setAttribute('data-theme', currentTheme);
+        updateThemeIcon(currentTheme);
+
+        themeToggle.addEventListener('click', () => {
+            const newTheme = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+        });
+
+        function updateThemeIcon(theme) {
+            themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+
+        // Copy to clipboard functionality
+        function copyCode(button) {
+            const codeBlock = button.closest('.code-block').querySelector('pre code');
+            const text = codeBlock.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                button.textContent = 'Error';
+            });
+        }
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Add interactive features on load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Back to top button
+            const backToTop = document.createElement('button');
+            backToTop.innerHTML = '↑';
+            backToTop.style.cssText = `
+                position: fixed;
+                bottom: 30px;
+                right: 30px;
+                width: 50px;
+                height: 50px;
+                border-radius: 50%;
+                background: var(--accent-color);
+                color: white;
+                border: none;
+                cursor: pointer;
+                font-size: 24px;
+                display: none;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                transition: all 0.3s ease;
+                z-index: 999;
+            `;
+            backToTop.setAttribute('aria-label', 'Back to top');
+            backToTop.setAttribute('title', 'Back to top');
+            document.body.appendChild(backToTop);
+
+            // Show/hide back to top button
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 500) {
+                    backToTop.style.display = 'flex';
+                    backToTop.style.alignItems = 'center';
+                    backToTop.style.justifyContent = 'center';
+                } else {
+                    backToTop.style.display = 'none';
+                }
+            });
+
+            backToTop.addEventListener('click', () => {
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            });
+
+            backToTop.addEventListener('mouseenter', () => {
+                backToTop.style.transform = 'scale(1.1)';
+            });
+
+            backToTop.addEventListener('mouseleave', () => {
+                backToTop.style.transform ='scale(1)';
+            });
+
+            // Add reading progress bar
+            const progressBar = document.createElement('div');
+            progressBar.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 3px;
+                background: linear-gradient(90deg, var(--accent-color), #9333ea);
+                width: 0%;
+                z-index: 9999;
+                transition: width 0.2s ease;
+            `;
+            document.body.appendChild(progressBar);
+
+            window.addEventListener('scroll', () => {
+                const windowHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                const scrolled = (window.scrollY / windowHeight) * 100;
+                progressBar.style.width = scrolled + '%';
+            });
+
+            // Highlight active section in navigation
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.getAttribute('id');
+                        if (id && window.history.replaceState) {
+                            window.history.replaceState(null, null, `#${id}`);
+                        }
+                    }
+                });
+            }, { threshold: 0.5 });
+
+            // Observe all sections
+            document.querySelectorAll('section[id]').forEach(section => {
+                observer.observe(section);
+            });
+
+            // Add fade-in animation for diagrams
+            const diagrams = document.querySelectorAll('.diagram-container');
+            const diagramObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '0';
+                        entry.target.style.transform = 'translateY(20px)';
+                        entry.target.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+                        
+                        setTimeout(() => {
+                            entry.target.style.opacity = '1';
+                            entry.target.style.transform = 'translateY(0)';
+                        }, 100);
+                        
+                        diagramObserver.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            diagrams.forEach(diagram => diagramObserver.observe(diagram));
+
+            // Add console easter egg for curious developers
+            console.log('%cHey there, curious developer! 👋', 'font-size: 20px; color: #0366d6; font-weight: bold;');
+            console.log('%cInterested in how this blog works?', 'font-size: 14px; color: #586069;');
+            console.log('%cIt\'s just vanilla HTML, CSS, and JavaScript - no frameworks!', 'font-size: 14px; color: #28a745;');
+            console.log('%cFeel free to view source and learn from it. Happy coding! 🚀', 'font-size: 14px; color: #9333ea;');
+        });
+
+        // Print-friendly: Remove interactive elements when printing
+        window.addEventListener('beforeprint', () => {
+            document.querySelectorAll('.copy-btn').forEach(btn => {
+                btn.style.display = 'none';
+            });
+            document.getElementById('themeToggle').style.display = 'none';
+        });
+
+        window.addEventListener('afterprint', () => {
+            document.querySelectorAll('.copy-btn').forEach(btn => {
+                btn.style.display = 'block';
+            });
+            document.getElementById('themeToggle').style.display = 'flex';
+        });
+
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + K to go back to top
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                window.scrollTo({
+                    top: 0,
+                    behavior: 'smooth'
+                });
+            }
+            
+            // Ctrl/Cmd + D to toggle dark mode
+            if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+                e.preventDefault();
+                themeToggle.click();
+            }
+        });
+    </script>
+</body>
+</html>
